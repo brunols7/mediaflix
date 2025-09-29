@@ -1,71 +1,77 @@
-import React from 'react';
+"use client";
 
-interface Actor {
-  name: string;
-  character?: string;
-  profile_path?: string;
-}
+import React, { useState } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
+import { Button } from "./ui/button";
+import { Users, ChevronDown, ChevronUp } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
+import { getProfileUrl } from "@/lib/utils";
+import { MoviesGetCreditsResponse } from "tmdb-js-node";
 
-interface CastSectionProps {
-  actors: Actor[];
-}
+function CastSection({ credits }: { credits: MoviesGetCreditsResponse }) {
+  const [showAll, setShowAll] = useState(false);
+  const initialDisplayCount = 8;
 
-const CastSection: React.FC<CastSectionProps> = ({ actors }) => {
-  const getInitials = (name: string): string => {
-    const words = name.trim().split(' ');
-    if (words.length === 0) return '';
-    
-    // Get first character of first word
-    const firstInitial = words[0].charAt(0).toUpperCase();
-    
-    // Get first character of second word if it exists, otherwise first character of first word
-    const secondInitial = words.length > 1 
-      ? words[1].charAt(0).toUpperCase()
-      : words[0].charAt(1) || words[0].charAt(0).toUpperCase();
-    
-    return firstInitial + secondInitial;
-  };
+  const displayedCast = showAll
+    ? credits.cast
+    : credits.cast.slice(0, initialDisplayCount);
+  const hasMoreCast = credits.cast.length > initialDisplayCount;
 
   return (
-    <div className="cast-section">
-      <h3>Cast</h3>
-      <div className="cast-grid">
-        {actors.map((actor, index) => (
-          <div key={index} className="actor-card">
-            <div className="actor-avatar">
-              {actor.profile_path ? (
-                <img 
-                  src={`https://image.tmdb.org/t/p/w185${actor.profile_path}`}
-                  alt={actor.name}
-                  onError={(e) => {
-                    // Fallback to initials if image fails to load
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const initialsDiv = target.nextElementSibling as HTMLElement;
-                    if (initialsDiv) {
-                      initialsDiv.style.display = 'flex';
-                    }
-                  }}
-                />
-              ) : null}
-              <div 
-                className="avatar-fallback"
-                style={{ display: actor.profile_path ? 'none' : 'flex' }}
-              >
-                {getInitials(actor.name)}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="h-5 w-5" />
+          Cast
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {displayedCast.map((actor) => (
+            <div key={actor.id} className="text-center">
+              <div className="relative w-20 h-20 mx-auto mb-2 rounded-full overflow-hidden">
+                <Avatar className="size-full">
+                  <AvatarImage
+                    src={getProfileUrl(actor.profile_path)}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="uppercase">
+                    {actor.name.length >= 2
+                      ? actor.name.charAt(0) + actor.name.charAt(1)
+                      : actor.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
               </div>
+              <p className="font-medium text-sm">{actor.name}</p>
+              <p className="text-xs text-muted-foreground">{actor.character}</p>
             </div>
-            <div className="actor-info">
-              <div className="actor-name">{actor.name}</div>
-              {actor.character && (
-                <div className="actor-character">{actor.character}</div>
+          ))}
+        </div>
+
+        {hasMoreCast && (
+          <div className="flex justify-center mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowAll(!showAll)}
+              className="flex items-center gap-2"
+            >
+              {showAll ? (
+                <>
+                  <ChevronUp className="h-4 w-4" />
+                  Show Less
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" />
+                  Show More ({credits.cast.length - initialDisplayCount} more)
+                </>
               )}
-            </div>
+            </Button>
           </div>
-        ))}
-      </div>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
-};
+}
 
 export default CastSection;
