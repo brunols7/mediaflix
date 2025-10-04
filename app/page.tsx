@@ -1,29 +1,16 @@
-import MediaTypeToggleWrapper from "@/components/MediaTypeToggleWrapper";
-import MovieCardSkeleton from "@/components/MovieCardSkeleton";
+"use client";
+
+import MediaTypeToggle from "@/components/MediaTypeToggle";
 import TopMovies from "@/components/TopMovies";
 import TopTVShows from "@/components/TopTVShows";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Radio, Star, TrendingUp } from "lucide-react";
-import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
-function LoadingSkeleton() {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {Array.from({ length: 10 }).map((_, index) => (
-        <MovieCardSkeleton key={index} />
-      ))}
-    </div>
-  );
-}
-
-interface HomeProps {
-  searchParams: Promise<{ type?: string }>;
-}
-
-export default async function Home(props: HomeProps) {
-  const searchParams = await props.searchParams;
-  const mediaType = searchParams.type === "tv" ? "tv" : "movies";
+export default function Home() {
+  const searchParams = useSearchParams();
+  const mediaType = searchParams.get("type") === "tv" ? "tv" : "movies";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
@@ -54,14 +41,12 @@ export default async function Home(props: HomeProps) {
         </div>
 
         {/* Media Type Toggle */}
-        <MediaTypeToggleWrapper />
+        <MediaTypeToggle />
 
         <Separator className="mb-8" />
 
         {/* Content Grid */}
-        <Suspense fallback={<LoadingSkeleton />}>
-          {mediaType === "movies" ? <TopMovies /> : <TopTVShows />}
-        </Suspense>
+        {mediaType === "movies" ? <TopMovies /> : <TopTVShows />}
 
         {/* Footer */}
         <div className="text-center mt-16 text-sm text-muted-foreground">
