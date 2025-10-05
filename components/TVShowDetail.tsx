@@ -35,6 +35,15 @@ import BackButton from "./BackButton";
 import SeasonEpisodesAccordion from "./SeasonEpisodesAccordion";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import WatchProviders from "./WatchProviders";
+import { StreamingOption } from "streaming-availability";
+import WatchProvidersFallback from "./WatchProvidersFallback";
+
+// Type guard function to check if watchProviders is StreamingOption[]
+function isStreamingOptionArray(
+  watchProviders: StreamingOption[] | TVGetWatchProvidersResponse | null,
+): watchProviders is StreamingOption[] {
+  return Array.isArray(watchProviders);
+}
 
 interface TVShowDetailProps {
   tvShow: TVGetDetailsResponse<
@@ -46,7 +55,7 @@ interface TVShowDetailProps {
       | "similar"
     )[]
   >;
-  watchProviders: TVGetWatchProvidersResponse;
+  watchProviders: StreamingOption[] | TVGetWatchProvidersResponse | null;
 }
 
 export default function TVShowDetail({
@@ -151,9 +160,15 @@ export default function TVShowDetail({
                   {tvShow.overview}
                 </p>
 
-                <div className="mb-6">
-                  <WatchProviders watchProviders={watchProviders} />
-                </div>
+                {watchProviders && (
+                  <div className="mb-6">
+                    {isStreamingOptionArray(watchProviders) ? (
+                      <WatchProviders watchProviders={watchProviders} />
+                    ) : (
+                      <WatchProvidersFallback watchProviders={watchProviders} />
+                    )}
+                  </div>
+                )}
 
                 <div className="flex flex-wrap gap-4">
                   <Button

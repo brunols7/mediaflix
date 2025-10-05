@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import api from "@/lib/tmdb";
 import TVShowDetail from "@/components/TVShowDetail";
+import getBaseUrl from "@/lib/getBaseUrl";
+import streamingClient from "@/lib/streamingClient";
+import { TVGetWatchProvidersResponse } from "tmdb-js-node";
+import { StreamingOption } from "streaming-availability";
 
 interface TVShowDetailPageProps {
   params: Promise<{ id: string }>;
@@ -61,10 +65,53 @@ export default async function TVShowDetailPage({
         "recommendations",
       ],
     });
-    const watchProviders = await api.v3.tv.getWatchProviders(tvShowId);
 
-    return <TVShowDetail tvShow={tvShow} watchProviders={watchProviders} />;
-  } catch {
+    if (!tvShow?.id) {
+      notFound();
+    }
+
+    let providers: StreamingOption[] | TVGetWatchProvidersResponse | null =
+      null;
+
+    try {
+      const res = await fetch(`${getBaseUrl()}/api/geo`);
+      const country = await res.text();
+
+      const show = await streamingClient.showsApi
+        .getShow({
+          id: `tv/${tvShowId}`,
+          country,
+        })
+        .catch(() => null);
+
+      // Properly handle streamingOptions - get options for the specific country
+      if (show?.streamingOptions && country) {
+        const countryOptions = show.streamingOptions[country];
+        // Validate that countryOptions is an array before using it
+        if (Array.isArray(countryOptions) && countryOptions.length > 0) {
+          providers = countryOptions;
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching streaming data:", error);
+    }
+
+    // Check if we have valid streaming providers (array with length > 0)
+    const hasStreamingProviders =
+      Array.isArray(providers) && providers.length > 0;
+
+    if (!hasStreamingProviders) {
+      try {
+        providers = await api.v3.tv.getWatchProviders(tvShowId);
+      } catch (error) {
+        console.error("Error fetching TMDB watch providers:", error);
+        providers = null;
+      }
+    }
+
+    return <TVShowDetail tvShow={tvShow} watchProviders={providers} />;
+  } catch (error) {
+    console.error("Error fetching TV show details:", error);
     notFound();
   }
 }
