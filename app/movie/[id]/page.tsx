@@ -1,10 +1,8 @@
 import MovieDetail from "@/components/MovieDetail";
-import getBaseUrl from "@/lib/getBaseUrl";
-import streamingClient from "@/lib/streamingClient";
+import getCountry from "@/lib/getCountry";
 import api from "@/lib/tmdb";
 import { notFound } from "next/navigation";
-import { StreamingOption } from "streaming-availability";
-import { MoviesGetWatchProvidersResponse } from "tmdb-js-node";
+import { MoviesGetWatchProvidersResults } from "tmdb-js-node";
 
 interface MovieDetailPageProps {
   params: Promise<{ id: string }>;
@@ -64,42 +62,24 @@ export default async function MovieDetailPage({
       notFound();
     }
 
-    let providers: StreamingOption[] | MoviesGetWatchProvidersResponse | null =
-      null;
+    const country = await getCountry();
 
-    try {
-      const res = await fetch(`${getBaseUrl()}/api/geo`);
-      const country = await res.text();
+    const providersRes = await api.v3.movies.getWatchProviders(movieId);
 
-      const show = await streamingClient.showsApi
-        .getShow({
-          id: `movie/${movieId}`,
-          country,
-        })
-        .catch(() => null);
+    // Try to get providers for user's country, fallback to US, then first available
+    let providers =
+      providersRes.results[country as keyof MoviesGetWatchProvidersResults];
 
-      // Properly handle streamingOptions - get options for the specific country
-      if (show?.streamingOptions && country) {
-        const countryOptions = show.streamingOptions[country];
-        // Validate that countryOptions is an array before using it
-        if (Array.isArray(countryOptions) && countryOptions.length > 0) {
-          providers = countryOptions;
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching streaming data:", error);
+    if (!providers && country !== "US") {
+      providers = providersRes.results.US;
     }
 
-    // Check if we have valid streaming providers (array with length > 0)
-    const hasStreamingProviders =
-      Array.isArray(providers) && providers.length > 0;
-
-    if (!hasStreamingProviders) {
-      try {
-        providers = await api.v3.movies.getWatchProviders(movieId);
-      } catch (error) {
-        console.error("Error fetching TMDB watch providers:", error);
-        providers = null;
+    if (!providers && providersRes.results) {
+      const availableCountries = Object.keys(
+        providersRes.results,
+      ) as (keyof MoviesGetWatchProvidersResults)[];
+      if (availableCountries.length > 0) {
+        providers = providersRes.results[availableCountries[0]];
       }
     }
 
