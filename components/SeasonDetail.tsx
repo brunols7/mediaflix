@@ -2,6 +2,7 @@ import {
   formatDate,
   formatDateShort,
   formatRuntime,
+  getCountryName,
   getPosterUrl,
 } from "@/lib/utils";
 import {
@@ -190,7 +191,7 @@ export default function SeasonDetail({
                           )}
                         {country && (
                           <span className="text-xs text-muted-foreground">
-                            Available in {country}
+                            Streaming in {getCountryName(country)}
                           </span>
                         )}
                       </div>
