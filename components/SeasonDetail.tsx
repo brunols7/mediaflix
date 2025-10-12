@@ -9,7 +9,6 @@ import {
   Calendar,
   ChevronRight,
   Clock,
-  ExternalLink,
   Play,
   Star,
   ThumbsUp,
@@ -33,18 +32,21 @@ import {
   TVSeasonsGetDetailsBaseResponse,
   TVSeasonsGetVideosResponse,
 } from "tmdb-js-node";
+import ConditionalTooltip from "./ConditionalTooltip";
 import ExpandableOverview from "./ExpandableOverview";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "./ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
 import { Separator } from "./ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 interface SeasonDetailProps {
   tvShow: TVGetDetailsBaseResponse & {
@@ -61,15 +63,18 @@ interface SeasonDetailProps {
   season: TVSeasonsGetDetailsBaseResponse & {
     credits: TVSeasonsGetCreditsResponse;
     videos: TVSeasonsGetVideosResponse;
-    watch_providers: TVGetWatchProvidersResponse;
   };
   tvShowId: number;
+  watchProviders?: TVGetWatchProvidersResponse["results"][string];
+  country?: string;
 }
 
 export default function SeasonDetail({
   tvShow,
   season,
   tvShowId,
+  watchProviders,
+  country,
 }: SeasonDetailProps) {
   // Calculate derived values from episodes
   const episodeCount = season.episodes?.length || 0;
@@ -96,101 +101,262 @@ export default function SeasonDetail({
 
         {/* Season Hero Section */}
         <div className="mb-8">
-          <div className="relative h-[60vh] min-h-[450px] max-h-[600px] rounded-2xl overflow-hidden group">
-            {/* Background Image with Fade Overlay */}
-            <div className="absolute inset-0">
+          <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+            {/* Poster Image */}
+            <div className="relative w-full lg:w-72 xl:w-80 flex-shrink-0">
               {season.poster_path ? (
-                <Image
-                  src={getPosterUrl(season.poster_path)}
-                  alt={season.name}
-                  fill
-                  className="object-cover transition-transform duration-700 group-hover:scale-105"
-                />
+                <div className="aspect-[2/3] relative rounded-lg overflow-hidden">
+                  <Image
+                    src={getPosterUrl(season.poster_path)}
+                    alt={season.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
-                  <Tv className="h-24 w-24 text-muted-foreground/50" />
+                <div className="aspect-[2/3] flex items-center justify-center bg-muted rounded-lg">
+                  <Tv className="h-16 w-16 text-muted-foreground/50" />
                 </div>
               )}
-              {/* Multi-layer fade overlay for better text readability */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-black/40" />
             </div>
 
-            {/* Content Overlay */}
-            <div className="relative z-10 h-full flex flex-col justify-end p-6 lg:p-8">
-              <div className="max-w-4xl space-y-4">
-                {/* Season Badge */}
-                <div>
-                  <Badge
-                    variant="secondary"
-                    className="bg-white/10 backdrop-blur-sm border-white/20 text-white text-sm px-4 py-2"
-                  >
-                    Season {season.season_number}
-                  </Badge>
-                </div>
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="space-y-5">
+                {/* Header Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Badge
+                      variant="outline"
+                      className="text-xs font-medium px-3 py-1"
+                    >
+                      Season {season.season_number}
+                    </Badge>
+                    {season.air_date && (
+                      <span className="text-sm text-muted-foreground">
+                        {new Date(season.air_date).getFullYear()}
+                      </span>
+                    )}
+                  </div>
 
-                {/* Main Title */}
-                <h1 className="text-3xl lg:text-4xl font-bold text-white leading-tight">
-                  {season.name}
-                </h1>
+                  <h1 className="text-2xl lg:text-3xl font-bold leading-tight">
+                    {season.name}
+                  </h1>
 
-                {/* Meta Information */}
-                <div className="flex flex-wrap items-center gap-6 text-white/90">
-                  {season.air_date && (
-                    <span className="flex items-center gap-2 text-lg">
-                      <Calendar className="h-5 w-5" />
-                      {formatDate(season.air_date)}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-2 text-lg">
-                    <Tv className="h-5 w-5" />
-                    {episodeCount} Episodes
-                  </span>
-                  {averageRating > 0 && (
-                    <span className="flex items-center gap-2 text-lg">
-                      <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                      {averageRating.toFixed(1)}/10
-                    </span>
+                  {/* Compact Meta Information */}
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                    {season.air_date && (
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="h-4 w-4" />
+                        {formatDate(season.air_date)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Watch Providers */}
+                  {watchProviders && (
+                    <div className="pt-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <h3 className="text-sm font-semibold text-muted-foreground">
+                          Watch Now
+                        </h3>
+                        <div className="h-px bg-border/50 flex-1" />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {watchProviders.flatrate &&
+                          watchProviders.flatrate.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              {watchProviders.flatrate
+                                .slice(0, 4)
+                                .map((provider) => (
+                                  <Tooltip key={provider.provider_id}>
+                                    <TooltipTrigger asChild>
+                                      <div className="w-6 h-6 rounded overflow-hidden">
+                                        <Image
+                                          src={`https://image.tmdb.org/t/p/w92${provider.logo_path}`}
+                                          alt={provider.provider_name}
+                                          width={24}
+                                          height={24}
+                                          className="object-cover w-full h-full"
+                                        />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>{provider.provider_name}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ))}
+                            </div>
+                          )}
+                        {country && (
+                          <span className="text-xs text-muted-foreground">
+                            Available in {country}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
 
                 {/* Overview */}
                 <ExpandableOverview
                   overview={season.overview || ""}
-                  className="max-w-3xl"
-                  textClassName="text-sm lg:text-base text-white/90 leading-relaxed mb-1"
+                  className="max-w-2xl"
+                  textClassName="text-sm leading-relaxed"
+                  buttonClassName="text-muted-foreground hover:text-foreground hover:bg-muted/50 h-6 font-normal transition-colors -ml-2 text-xs"
                   maxLines={3}
                 />
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-2xl">
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                    <div className="text-2xl lg:text-3xl font-bold text-white mb-1">
-                      {episodeCount}
+                {/* Inline Stats */}
+                <div className="flex items-center gap-6 pt-2 border-t border-border/50">
+                  <div className="text-center">
+                    <div className="text-lg font-semibold">{episodeCount}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Episodes
                     </div>
-                    <div className="text-sm text-white/70">Episodes</div>
                   </div>
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                    <div className="text-2xl lg:text-3xl font-bold text-white mb-1">
+                  <div className="text-center">
+                    <div className="text-lg font-semibold">
                       {averageRating > 0 ? averageRating.toFixed(1) : "N/A"}
                     </div>
-                    <div className="text-sm text-white/70">Rating</div>
+                    <div className="text-xs text-muted-foreground">Rating</div>
                   </div>
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                    <div className="text-2xl lg:text-3xl font-bold text-white mb-1">
+                  <div className="text-center">
+                    <div className="text-lg font-semibold">
                       {totalVotes > 0 ? totalVotes.toLocaleString() : "0"}
                     </div>
-                    <div className="text-sm text-white/70">Votes</div>
+                    <div className="text-xs text-muted-foreground">Votes</div>
                   </div>
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                    <div className="text-2xl lg:text-3xl font-bold text-white mb-1">
-                      {season.air_date
-                        ? new Date(season.air_date).getFullYear()
-                        : "TBA"}
+                  {season.air_date && (
+                    <div className="text-center">
+                      <div className="text-lg font-semibold">
+                        {new Date(season.air_date).getFullYear()}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Year</div>
                     </div>
-                    <div className="text-sm text-white/70">Year</div>
-                  </div>
+                  )}
                 </div>
+
+                {/* Cast Section */}
+                {season.credits?.cast && season.credits.cast.length > 0 && (
+                  <div className="pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-sm font-semibold text-muted-foreground">
+                        Cast
+                      </h3>
+                      <div className="h-px bg-border/50 flex-1" />
+                    </div>
+                    <div className="flex items-center gap-3 overflow-x-auto pb-2">
+                      {season.credits.cast.slice(0, 6).map((person) => (
+                        <ConditionalTooltip
+                          key={person.id}
+                          name={person.name}
+                          character={person.character || ""}
+                        >
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {person.profile_path ? (
+                              <div className="w-8 h-8 rounded-full overflow-hidden">
+                                <Image
+                                  src={`https://image.tmdb.org/t/p/w92${person.profile_path}`}
+                                  alt={person.name}
+                                  width={32}
+                                  height={32}
+                                  className="object-cover w-full h-full"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  {person.name.charAt(0)}
+                                </span>
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div
+                                className="text-xs font-medium truncate max-w-[80px]"
+                                data-name
+                              >
+                                {person.name}
+                              </div>
+                              <div
+                                className="text-xs text-muted-foreground truncate max-w-[80px]"
+                                data-character
+                              >
+                                {person.character}
+                              </div>
+                            </div>
+                          </div>
+                        </ConditionalTooltip>
+                      ))}
+                      {season.credits.cast.length > 6 && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs text-muted-foreground hover:text-foreground h-auto p-1 font-normal"
+                            >
+                              +{season.credits.cast.length - 6} more
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>
+                                Full Cast - {season.name}
+                              </DialogTitle>
+                              <DialogDescription>
+                                All cast members for this season
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                              {season.credits.cast.map((person) => (
+                                <ConditionalTooltip
+                                  key={person.id}
+                                  name={person.name}
+                                  character={person.character || ""}
+                                >
+                                  <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                                    {person.profile_path ? (
+                                      <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+                                        <Image
+                                          src={`https://image.tmdb.org/t/p/w185${person.profile_path}`}
+                                          alt={person.name}
+                                          width={48}
+                                          height={48}
+                                          className="object-cover w-full h-full"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                                        <span className="text-sm font-medium text-muted-foreground">
+                                          {person.name.charAt(0)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <div
+                                        className="font-medium truncate"
+                                        data-name
+                                      >
+                                        {person.name}
+                                      </div>
+                                      <div
+                                        className="text-sm text-muted-foreground truncate"
+                                        data-character
+                                      >
+                                        {person.character}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </ConditionalTooltip>
+                              ))}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -309,232 +475,18 @@ export default function SeasonDetail({
 
                       {/* Action Button - Moved to left */}
                       <div className="flex justify-start mt-3">
-                        <Sheet>
-                          <SheetTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-9 text-sm group-hover:bg-primary group-hover:text-primary-foreground hover:bg-primary hover:text-primary-foreground transition-all duration-200"
-                            >
-                              Details
-                              <ChevronRight className="h-4 w-4 ml-1" />
-                            </Button>
-                          </SheetTrigger>
-                          <SheetContent className="w-full sm:max-w-2xl p-6">
-                            <SheetHeader className="mb-3 p-0">
-                              <SheetTitle className="text-2xl">
-                                {episode.name}
-                              </SheetTitle>
-                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                <span>Episode {episode.episode_number}</span>
-                                {episode.air_date && (
-                                  <span>{formatDate(episode.air_date)}</span>
-                                )}
-                                {episode.runtime && (
-                                  <span>{formatRuntime(episode.runtime)}</span>
-                                )}
-                              </div>
-                            </SheetHeader>
-
-                            <div className="space-y-6 h-full flex flex-col max-h-[90vh] overflow-y-auto">
-                              {/* Episode Image */}
-                              <div className="relative h-48 rounded-lg overflow-hidden">
-                                <Image
-                                  src={getPosterUrl(episode.still_path)}
-                                  alt={episode.name}
-                                  fill
-                                  className="object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                                <div className="absolute bottom-4 left-4 text-white">
-                                  <div className="flex items-center gap-2">
-                                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                    <span className="font-semibold">
-                                      {episode.vote_average.toFixed(1)}/10
-                                    </span>
-                                    <span className="flex items-center gap-1 text-white/70">
-                                      <ThumbsUp className="h-3 w-3" />(
-                                      {episode.vote_count.toLocaleString()}{" "}
-                                      votes)
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Episode Stats Grid */}
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                                  <div className="text-lg font-bold text-primary">
-                                    {episode.episode_number}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Episode
-                                  </div>
-                                </div>
-                                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                                  <div className="text-lg font-bold">
-                                    {episode.runtime
-                                      ? formatRuntime(episode.runtime)
-                                      : "N/A"}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Runtime
-                                  </div>
-                                </div>
-                                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                                  <div className="text-lg font-bold text-primary">
-                                    {episode.vote_average.toFixed(1)}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Rating
-                                  </div>
-                                </div>
-                                <div className="bg-muted/50 rounded-lg p-3 text-center">
-                                  <div className="text-lg font-bold">
-                                    {episode.air_date
-                                      ? new Date(episode.air_date).getFullYear()
-                                      : "TBA"}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    Year
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Overview */}
-                              {episode.overview && (
-                                <div>
-                                  <h4 className="font-semibold mb-2">
-                                    Overview
-                                  </h4>
-                                  <p className="text-muted-foreground leading-relaxed">
-                                    {episode.overview}
-                                  </p>
-                                </div>
-                              )}
-
-                              {/* Crew & Cast */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Crew */}
-                                <div className="space-y-4">
-                                  {episode.crew.find(
-                                    (person) => person.job === "Director",
-                                  ) && (
-                                    <div>
-                                      <h4 className="font-semibold text-sm text-muted-foreground mb-1">
-                                        Director
-                                      </h4>
-                                      <p className="text-sm">
-                                        {
-                                          episode.crew.find(
-                                            (person) =>
-                                              person.job === "Director",
-                                          )?.name
-                                        }
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {episode.crew.filter(
-                                    (person) => person.job === "Writer",
-                                  ).length > 0 && (
-                                    <div>
-                                      <h4 className="font-semibold text-sm text-muted-foreground mb-1">
-                                        Writers
-                                      </h4>
-                                      <p className="text-sm">
-                                        {episode.crew
-                                          .filter(
-                                            (person) => person.job === "Writer",
-                                          )
-                                          .map((writer) => writer.name)
-                                          .join(", ")}
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {/* Additional crew roles */}
-                                  {episode.crew
-                                    .filter(
-                                      (person) =>
-                                        !["Director", "Writer"].includes(
-                                          person.job || "",
-                                        ),
-                                    )
-                                    .slice(0, 3)
-                                    .map((person) => (
-                                      <div key={person.id}>
-                                        <h4 className="font-semibold text-sm text-muted-foreground mb-1">
-                                          {person.job}
-                                        </h4>
-                                        <p className="text-sm">{person.name}</p>
-                                      </div>
-                                    ))}
-                                </div>
-
-                                {/* Guest Stars & Additional Info */}
-                                <div className="space-y-4">
-                                  {episode.guest_stars.length > 0 && (
-                                    <div>
-                                      <h4 className="font-semibold text-sm text-muted-foreground mb-2">
-                                        Guest Stars (
-                                        {episode.guest_stars.length})
-                                      </h4>
-                                      <div className="flex flex-wrap gap-2">
-                                        {episode.guest_stars
-                                          .slice(0, 6)
-                                          .map((star) => (
-                                            <Badge
-                                              key={star.name}
-                                              variant="outline"
-                                              className="text-xs"
-                                            >
-                                              {star.name}
-                                            </Badge>
-                                          ))}
-                                        {episode.guest_stars.length > 6 && (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs"
-                                          >
-                                            +{episode.guest_stars.length - 6}{" "}
-                                            more
-                                          </Badge>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Air Date */}
-                                  <div>
-                                    <h4 className="font-semibold text-sm text-muted-foreground mb-1">
-                                      Air Date
-                                    </h4>
-                                    <p className="text-sm">
-                                      {episode.air_date
-                                        ? formatDate(episode.air_date)
-                                        : "TBA"}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* External Link */}
-                              <div className="pt-6 mt-auto">
-                                <Button className="w-full" asChild>
-                                  <a
-                                    href={`https://www.themoviedb.org/tv/${tvShowId}/season/${episode.season_number}/episode/${episode.episode_number}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                    View on TMDB
-                                  </a>
-                                </Button>
-                              </div>
-                            </div>
-                          </SheetContent>
-                        </Sheet>
+                        <Link
+                          href={`/tv/${tvShowId}/season/${episode.season_number}/episode/${episode.episode_number}`}
+                        >
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 text-sm group-hover:bg-primary group-hover:text-primary-foreground hover:bg-primary hover:text-primary-foreground transition-all duration-200"
+                          >
+                            View Details
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </Link>
                       </div>
                     </div>
                   </div>
